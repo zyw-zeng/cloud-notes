@@ -1,0 +1,43 @@
+[Unit]
+Description=Cloud Notes Spring Boot Application
+Documentation=https://github.com/your-repo/cloud-notes
+After=network.target mysql.service redis.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/www/wwwroot/cloud-notes
+
+# 环境变量文件
+EnvironmentFile=/www/wwwroot/cloud-notes/.env.prod
+
+# JVM参数
+Environment="JAVA_OPTS=-Xms512m -Xmx1024m -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+Environment="JAVA_OPTS=-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/www/wwwroot/cloud-notes/logs/heapdump.hprof"
+
+# 启动命令
+ExecStart=/usr/bin/java ${JAVA_OPTS} -Dspring.profiles.active=prod -Dfile.encoding=UTF-8 -Duser.timezone=Asia/Shanghai -jar /www/wwwroot/cloud-notes/target/cloud-notes-0.0.1-SNAPSHOT.jar
+
+# 重启策略
+Restart=always
+RestartSec=10
+
+# 优雅关闭
+TimeoutStopSec=30
+KillMode=mixed
+
+# 日志输出
+StandardOutput=append:/www/wwwroot/cloud-notes/logs/app.log
+StandardError=append:/www/wwwroot/cloud-notes/logs/error.log
+
+# 安全设置
+NoNewPrivileges=true
+PrivateTmp=true
+
+# 资源限制
+LimitNOFILE=65535
+LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target

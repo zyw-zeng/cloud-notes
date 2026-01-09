@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket 通知测试页面</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 30px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .status-box {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
+        }
+        .status-box.disconnected {
+            background: #fee;
+            color: #c00;
+            border: 2px solid #fcc;
+        }
+        .status-box.connected {
+            background: #efe;
+            color: #090;
+            border: 2px solid #cfc;
+        }
+        .status-box.connecting {
+            background: #ffc;
+            color: #660;
+            border: 2px solid #fec;
+        }
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        .status-box.connected .status-indicator {
+            background: #090;
+        }
+        .status-box.disconnected .status-indicator {
+            background: #c00;
+        }
+        .status-box.connecting .status-indicator {
+            background: #f90;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        button {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .btn-connect {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-connect:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        .btn-disconnect {
+            background: #f44336;
+            color: white;
+        }
+        .btn-disconnect:hover:not(:disabled) {
+            background: #d32f2f;
+        }
+        .btn-test {
+            background: #4CAF50;
+            color: white;
+        }
+        .btn-test:hover:not(:disabled) {
+            background: #45a049;
+        }
+        .btn-clear {
+            background: #ff9800;
+            color: white;
+        }
+        .btn-clear:hover:not(:disabled) {
+            background: #f57c00;
+        }
+        .notifications-container {
+            background: #f5f5f5;
+            border-radius: 8px;
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .notifications-container h3 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 18px;
+        }
+        .notification-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .notification-item .title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+            font-size: 16px;
+        }
+        .notification-item .content {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 8px;
+            white-space: pre-wrap;
+        }
+        .notification-item .meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #999;
+        }
+        .notification-item .type {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+        .stats {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            flex: 1;
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        .stat-card .label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔔 WebSocket 通知测试</h1>
+        <p class="subtitle">测试您的实时通知系统是否正常工作</p>
+
+        <!-- 连接状态 -->
+        <div id="statusBox" class="status-box disconnected">
+            <div class="status-indicator"></div>
+            <span id="statusText">未连接</span>
+        </div>
+
+        <!-- 连接配置 -->
+        <div class="input-group">
+            <label for="serverUrl">WebSocket 服务器地址</label>
+            <input type="text" id="serverUrl" value="http://localhost:8080/ws" placeholder="http://localhost:8080/ws">
+        </div>
+
+        <div class="input-group">
+            <label for="username">用户名（订阅队列使用）</label>
+            <input type="text" id="username" value="testuser" placeholder="输入您的用户名">
+        </div>
+
+        <!-- 按钮组 -->
+        <div class="button-group">
+            <button id="connectBtn" class="btn-connect" onclick="connect()">🔗 连接</button>
+            <button id="disconnectBtn" class="btn-disconnect" onclick="disconnect()" disabled>🔌 断开</button>
+            <button id="testBtn" class="btn-test" onclick="sendTestMessage()" disabled>✉️ 模拟通知</button>
+            <button class="btn-clear" onclick="clearNotifications()">🗑️ 清空</button>
+        </div>
+
+        <!-- 统计信息 -->
+        <div class="stats">
+            <div class="stat-card">
+                <div class="value" id="receivedCount">0</div>
+                <div class="label">已收到通知</div>
+            </div>
+            <div class="stat-card">
+                <div class="value" id="connectionTime">--</div>
+                <div class="label">连接时长</div>
+            </div>
+        </div>
+
+        <!-- 通知列表 -->
+        <div class="notifications-container">
+            <h3>📬 收到的通知</h3>
+            <div id="notificationsList">
+                <div class="empty-state">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                    </svg>
+                    <p>暂无通知</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SockJS 和 STOMP 库 -->
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7/bundles/stomp.umd.min.js"></script>
+
+    <script>
+        let stompClient = null;
+        let notificationCount = 0;
+        let connectionStartTime = null;
+        let connectionTimeInterval = null;
+
+        function updateStatus(status, text) {
+            const statusBox = document.getElementById('statusBox');
+            const statusText = document.getElementById('statusText');
+            
+            statusBox.className = `status-box ${status}`;
+            statusText.textContent = text;
+        }
+
+        function connect() {
+            const serverUrl = document.getElementById('serverUrl').value;
+            const username = document.getElementById('username').value;
+
+            if (!username) {
+                alert('请输入用户名');
+                return;
+            }
+
+            updateStatus('connecting', '正在连接...');
+            
+            const socket = new SockJS(serverUrl);
+            stompClient = StompJs.Stomp.over(socket);
+            
+            // 配置选项
+            stompClient.reconnectDelay = 5000;
+            stompClient.heartbeatIncoming = 4000;
+            stompClient.heartbeatOutgoing = 4000;
+
+            stompClient.onConnect = (frame) => {
+                console.log('WebSocket 连接成功:', frame);
+                updateStatus('connected', '✅ 已连接到服务器');
+                
+                // 订阅用户的私有通知队列
+                stompClient.subscribe(`/user/queue/notifications`, (message) => {
+                    console.log('收到通知:', message.body);
+                    const notification = JSON.parse(message.body);
+                    addNotification(notification);
+                });
+
+                // 订阅主题（可选）
+                stompClient.subscribe(`/topic/public`, (message) => {
+                    console.log('收到公共消息:', message.body);
+                });
+
+                // 更新 UI
+                document.getElementById('connectBtn').disabled = true;
+                document.getElementById('disconnectBtn').disabled = false;
+                document.getElementById('testBtn').disabled = false;
+
+                // 开始计时
+                connectionStartTime = new Date();
+                startConnectionTimer();
+            };
+
+            stompClient.onStompError = (frame) => {
+                console.error('WebSocket 错误:', frame);
+                updateStatus('disconnected', '❌ 连接失败: ' + frame.headers['message']);
+            };
+
+            stompClient.onWebSocketClose = (event) => {
+                console.log('WebSocket 关闭:', event);
+                updateStatus('disconnected', '⚠️ 连接已关闭');
+                resetUI();
+            };
+
+            stompClient.activate();
+        }
+
+        function disconnect() {
+            if (stompClient) {
+                stompClient.deactivate();
+                updateStatus('disconnected', '未连接');
+                resetUI();
+            }
+        }
+
+        function resetUI() {
+            document.getElementById('connectBtn').disabled = false;
+            document.getElementById('disconnectBtn').disabled = true;
+            document.getElementById('testBtn').disabled = true;
+            stopConnectionTimer();
+        }
+
+        function startConnectionTimer() {
+            connectionTimeInterval = setInterval(() => {
+                if (connectionStartTime) {
+                    const duration = Math.floor((new Date() - connectionStartTime) / 1000);
+                    const minutes = Math.floor(duration / 60);
+                    const seconds = duration % 60;
+                    document.getElementById('connectionTime').textContent = 
+                        `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                }
+            }, 1000);
+        }
+
+        function stopConnectionTimer() {
+            if (connectionTimeInterval) {
+                clearInterval(connectionTimeInterval);
+                connectionTimeInterval = null;
+            }
+            document.getElementById('connectionTime').textContent = '--';
+        }
+
+        function sendTestMessage() {
+            const notification = {
+                id: Date.now(),
+                title: '测试通知',
+                content: '这是一条测试通知消息\n时间：' + new Date().toLocaleString('zh-CN'),
+                type: 'TODO_REMINDER',
+                relatedId: 123,
+                relatedType: 'TODO',
+                createdAt: new Date().toISOString()
+            };
+            
+            addNotification(notification);
+            console.log('发送测试通知:', notification);
+        }
+
+        function addNotification(notification) {
+            notificationCount++;
+            document.getElementById('receivedCount').textContent = notificationCount;
+
+            const list = document.getElementById('notificationsList');
+            
+            // 移除空状态
+            const emptyState = list.querySelector('.empty-state');
+            if (emptyState) {
+                emptyState.remove();
+            }
+
+            const item = document.createElement('div');
+            item.className = 'notification-item';
+            item.innerHTML = `
+                <div class="title">${notification.title}</div>
+                <div class="content">${notification.content}</div>
+                <div class="meta">
+                    <span class="type">${notification.type}</span>
+                    <span>${new Date(notification.createdAt).toLocaleString('zh-CN')}</span>
+                </div>
+            `;
+
+            list.insertBefore(item, list.firstChild);
+
+            // 限制显示数量
+            const items = list.querySelectorAll('.notification-item');
+            if (items.length > 20) {
+                items[items.length - 1].remove();
+            }
+        }
+
+        function clearNotifications() {
+            const list = document.getElementById('notificationsList');
+            list.innerHTML = `
+                <div class="empty-state">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                    </svg>
+                    <p>暂无通知</p>
+                </div>
+            `;
+            notificationCount = 0;
+            document.getElementById('receivedCount').textContent = '0';
+        }
+
+        // 页面加载完成后的提示
+        window.onload = () => {
+            console.log('WebSocket 测试页面已加载');
+            console.log('请点击"连接"按钮开始测试');
+        };
+    </script>
+</body>
+</html>

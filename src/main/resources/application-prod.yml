@@ -1,0 +1,40 @@
+# ===== 生产环境配置 =====
+
+spring:
+  datasource:
+    # 生产环境数据库连接（Docker MySQL映射到13306端口）
+    url: jdbc:mysql://127.0.0.1:13306/cloud_notes_db?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf-8&allowPublicKeyRetrieval=true
+    username: ${DB_USERNAME:prod_user}  # 从环境变量读取
+    password: ${DB_PASSWORD:prod_pass}  # 从环境变量读取
+
+    hikari:
+      minimum-idle: 10
+      maximum-pool-size: 50
+
+  # Flyway 配置（生产环境）
+  flyway:
+    enabled: true                     # 启用 Flyway
+    baseline-on-migrate: true         # 已有表时创建基线
+    clean-disabled: true              # 生产环境禁止 clean 操作（安全）
+    validate-on-migrate: true         # 迁移前验证脚本
+
+  jpa:
+    hibernate:
+      ddl-auto: validate  # ⚠️ 生产环境必须使用 validate，禁止自动修改表结构
+    show-sql: false       # 生产环境不打印 SQL
+
+# JWT 配置（生产环境必须使用强密钥，建议从环境变量读取）
+jwt:
+  secret: ${JWT_SECRET:pXNNyoWEdZFrc2qSfcv2+eXWFjHKmrAxVNe7DW6gpRVYhfyUNJgC/+dEb+fRhV84MeXWIENLh6v86pJAaqB9wg==}
+  expiration: 86400000  # 24小时
+
+# 日志配置
+logging:
+  level:
+    root: WARN
+    com.example.cloudnotes: INFO
+    org.springframework.security: WARN
+  file:
+    name: logs/cloud-notes.log
+    max-size: 50MB
+    max-history: 30
